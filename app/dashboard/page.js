@@ -1,420 +1,505 @@
 'use client'
-
 import { useState, useEffect } from 'react'
+import { useUser } from '@clerk/nextjs'
+import Link from 'next/link'
 import { 
   TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Activity, 
-  BarChart3,
-  Zap,
-  Clock,
-  Target,
+  BarChart3, 
+  Zap, 
+  Settings, 
+  CreditCard, 
   Award,
-  AlertCircle
+  Users,
+  ArrowUpRight,
+  ArrowDownRight,
+  DollarSign,
+  Activity,
+  Calendar,
+  PlayCircle,
+  PauseCircle,
+  Eye,
+  Edit,
+  Trash2,
+  Plus,
+  Star,
+  Bookmark,
+  Share2,
+  Download,
+  Filter,
+  Search,
+  Sparkles,
+  Crown,
+  Bot,
+  Shield,
+  Target,
+  Clock,
+  TrendingDown,
+  Bell,
+  MoreVertical,
+  RefreshCcw,
+  ChevronRight
 } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts'
 
-// Mock data - in real app this would come from API
-const equityData = [
-  { date: '2024-01-01', balance: 10000 },
-  { date: '2024-01-02', balance: 10150 },
-  { date: '2024-01-03', balance: 10080 },
-  { date: '2024-01-04', balance: 10320 },
-  { date: '2024-01-05', balance: 10290 },
-  { date: '2024-01-06', balance: 10450 },
-  { date: '2024-01-07', balance: 10380 },
-  { date: '2024-01-08', balance: 10520 },
-  { date: '2024-01-09', balance: 10680 },
-  { date: '2024-01-10', balance: 10750 }
-]
-
-const strategyPerformance = [
-  { name: 'RSI Extremes', value: 35, color: '#3B82F6' },
-  { name: 'Heikin-Ashi Pullback', value: 25, color: '#10B981' },
-  { name: 'Stochastic Signal', value: 20, color: '#F59E0B' },
-  { name: 'Bollinger RSI ADX', value: 20, color: '#EF4444' }
-]
-
-const recentTrades = [
-  {
-    id: 1,
-    pair: 'EUR/USD',
-    type: 'BUY',
-    entry: 1.0845,
-    exit: 1.0867,
-    pips: 22,
-    profit: 220,
-    time: '10:30',
-    strategy: 'RSI Extremes'
-  },
-  {
-    id: 2,
-    pair: 'GBP/USD',
-    type: 'SELL',
-    entry: 1.2634,
-    exit: 1.2615,
-    pips: 19,
-    profit: 190,
-    time: '09:45',
-    strategy: 'Bollinger RSI ADX'
-  },
-  {
-    id: 3,
-    pair: 'USD/JPY',
-    type: 'BUY',
-    entry: 149.85,
-    exit: 149.62,
-    pips: -23,
-    profit: -230,
-    time: '08:20',
-    strategy: 'Stochastic Signal'
-  }
-]
-
-function StatCard({ title, value, change, changePercent, icon: Icon, trend }) {
-  const isPositive = change >= 0
+function WelcomeSection({ user }) {
+  const userRole = user?.publicMetadata?.role || 'user'
+  const isNewUser = new Date(user?.createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-          <div className="flex items-center mt-2">
-            {isPositive ? (
-              <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
-            ) : (
-              <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
+    <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-3xl p-8 text-white mb-8 shadow-2xl">
+      <div className="absolute inset-0 bg-black/10"></div>
+      <div className="relative z-10">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-xl">
+                <Bot className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-black mb-2">
+                  Welcome back, {user?.firstName || 'Trader'}!
+                </h1>
+                <p className="text-blue-100 text-lg">
+                  {isNewUser 
+                    ? '🚀 Start your automated trading journey with our AI-powered strategies'
+                    : '📈 Continue building your trading empire with confidence'
+                  }
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-4 mb-6">
+              <div className={`flex items-center space-x-2 px-4 py-2 rounded-full font-semibold ${
+                userRole === 'premium' 
+                  ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg' 
+                  : userRole === 'admin'
+                  ? 'bg-gradient-to-r from-red-500 to-pink-600 text-white shadow-lg'
+                  : 'bg-white/20 backdrop-blur-sm text-white border border-white/30'
+              }`}>
+                {userRole === 'premium' && <Crown className="w-4 h-4" />}
+                {userRole === 'admin' && <Shield className="w-4 h-4" />}
+                <span>{userRole === 'premium' ? 'Premium Member' : userRole === 'admin' ? 'Admin Access' : 'Free Account'}</span>
+              </div>
+              
+              <div className="flex items-center space-x-2 text-blue-100">
+                <Calendar className="w-4 h-4" />
+                <span className="text-sm">
+                  Member since {new Date(user?.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                </span>
+              </div>
+            </div>
+            
+            {userRole === 'user' && (
+              <div className="flex items-center space-x-4 p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20">
+                <Sparkles className="w-6 h-6 text-yellow-300" />
+                <div className="flex-1">
+                  <p className="font-semibold mb-1">🎯 Unlock Premium Features</p>
+                  <p className="text-blue-100 text-sm">Get advanced analytics, unlimited strategies, and priority support</p>
+                </div>
+                <Link 
+                  href="/dashboard/upgrade" 
+                  className="flex items-center space-x-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-xl hover:from-yellow-500 hover:to-orange-600 transition-all duration-300 shadow-lg hover:shadow-xl font-semibold"
+                >
+                  <Crown className="w-4 h-4" />
+                  <span>Upgrade Now</span>
+                  <ArrowUpRight className="w-4 h-4" />
+                </Link>
+              </div>
             )}
-            <span className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-              {isPositive ? '+' : ''}{change} ({isPositive ? '+' : ''}{changePercent}%)
-            </span>
+          </div>
+          
+          <div className="hidden lg:block">
+            <div className="w-32 h-32 bg-white/10 backdrop-blur-sm rounded-3xl flex items-center justify-center shadow-2xl">
+              <TrendingUp className="w-16 h-16 text-white" />
+            </div>
           </div>
         </div>
-        <div className={`p-3 rounded-lg ${isPositive ? 'bg-green-50' : 'bg-red-50'}`}>
-          <Icon className={`h-6 w-6 ${isPositive ? 'text-green-600' : 'text-red-600'}`} />
+      </div>
+      
+      {/* Decorative Elements */}
+      <div className="absolute top-4 right-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+      <div className="absolute bottom-4 left-4 w-16 h-16 bg-purple-300/20 rounded-full blur-xl"></div>
+    </div>
+  )
+}
+
+function QuickStats() {
+  const [stats, setStats] = useState({
+    totalTrades: 247,
+    winRate: 87.3,
+    totalProfit: 12540,
+    activeStrategies: 5
+  })
+
+  const statCards = [
+    {
+      title: 'Total Trades',
+      value: stats.totalTrades.toLocaleString(),
+      change: '+12%',
+      changeType: 'positive',
+      icon: BarChart3,
+      gradient: 'from-blue-500 to-cyan-500',
+      bgGradient: 'from-blue-50 to-cyan-50'
+    },
+    {
+      title: 'Win Rate',
+      value: `${stats.winRate}%`,
+      change: '+5.2%',
+      changeType: 'positive',
+      icon: Award,
+      gradient: 'from-green-500 to-emerald-500',
+      bgGradient: 'from-green-50 to-emerald-50'
+    },
+    {
+      title: 'Total Profit',
+      value: `$${stats.totalProfit.toLocaleString()}`,
+      change: '+23%',
+      changeType: 'positive',
+      icon: DollarSign,
+      gradient: 'from-purple-500 to-pink-500',
+      bgGradient: 'from-purple-50 to-pink-50'
+    },
+    {
+      title: 'Active Strategies',
+      value: stats.activeStrategies,
+      change: '3 running',
+      changeType: 'neutral',
+      icon: Activity,
+      gradient: 'from-orange-500 to-red-500',
+      bgGradient: 'from-orange-50 to-red-50'
+    }
+  ]
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+      {statCards.map((stat, index) => (
+        <div 
+          key={index}
+          className={`relative group bg-gradient-to-br ${stat.bgGradient} rounded-2xl p-6 border border-white/50 shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden`}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className={`p-3 bg-gradient-to-br ${stat.gradient} rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                <stat.icon className="w-6 h-6 text-white" />
+              </div>
+              <button className="text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                <MoreVertical className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div>
+              <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
+              <p className="text-3xl font-black text-gray-900 mb-3">{stat.value}</p>
+              
+              <div className="flex items-center">
+                {stat.changeType === 'positive' && <ArrowUpRight className="w-4 h-4 text-green-600 mr-1" />}
+                {stat.changeType === 'negative' && <TrendingDown className="w-4 h-4 text-red-600 mr-1" />}
+                <span className={`text-sm font-semibold ${
+                  stat.changeType === 'positive' ? 'text-green-600' : 
+                  stat.changeType === 'negative' ? 'text-red-600' : 'text-gray-600'
+                }`}>
+                  {stat.change}
+                </span>
+                {stat.changeType !== 'neutral' && (
+                  <span className="text-gray-500 text-sm ml-1">vs last month</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function QuickActions() {
+  const actions = [
+    {
+      title: 'New Backtest',
+      subtitle: 'Test strategies',
+      href: '/dashboard/backtest',
+      icon: PlayCircle,
+      gradient: 'from-blue-500 to-cyan-500',
+      bgGradient: 'from-blue-50 to-cyan-50'
+    },
+    {
+      title: 'View Strategies',
+      subtitle: 'Manage bots',
+      href: '/dashboard/strategies',
+      icon: Zap,
+      gradient: 'from-green-500 to-emerald-500',
+      bgGradient: 'from-green-50 to-emerald-50'
+    },
+    {
+      title: 'Analytics',
+      subtitle: 'Performance data',
+      href: '/dashboard/analytics',
+      icon: BarChart3,
+      gradient: 'from-purple-500 to-pink-500',
+      bgGradient: 'from-purple-50 to-pink-50'
+    },
+    {
+      title: 'Settings',
+      subtitle: 'Configure account',
+      href: '/dashboard/settings',
+      icon: Settings,
+      gradient: 'from-orange-500 to-red-500',
+      bgGradient: 'from-orange-50 to-red-50'
+    }
+  ]
+
+  return (
+    <div className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 mb-8">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">Quick Actions</h3>
+          <p className="text-gray-600">Frequently used features at your fingertips</p>
+        </div>
+        <button className="text-gray-400 hover:text-gray-600">
+          <MoreVertical className="w-5 h-5" />
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {actions.map((action, index) => (
+          <Link 
+            key={index}
+            href={action.href}
+            className={`group relative bg-gradient-to-br ${action.bgGradient} p-6 rounded-2xl hover:shadow-lg transition-all duration-300 border border-gray-100 overflow-hidden`}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative z-10">
+              <div className={`w-12 h-12 bg-gradient-to-br ${action.gradient} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
+                <action.icon className="w-6 h-6 text-white" />
+              </div>
+              <h4 className="font-bold text-gray-900 mb-1">{action.title}</h4>
+              <p className="text-gray-600 text-sm">{action.subtitle}</p>
+              <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all duration-200 absolute top-6 right-6" />
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RecentTrades() {
+  const sampleTrades = [
+    { id: 1, pair: 'EUR/USD', type: 'Buy', entry: 1.0850, exit: 1.0890, profit: 40, date: '2024-01-15', status: 'completed' },
+    { id: 2, pair: 'GBP/USD', type: 'Sell', entry: 1.2750, exit: 1.2720, profit: 30, date: '2024-01-14', status: 'completed' },
+    { id: 3, pair: 'USD/JPY', type: 'Buy', entry: 148.50, exit: 148.20, profit: -30, date: '2024-01-14', status: 'completed' },
+    { id: 4, pair: 'AUD/USD', type: 'Buy', entry: 0.6650, exit: 0.6680, profit: 25, date: '2024-01-13', status: 'completed' },
+  ]
+
+  return (
+    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+      <div className="p-8 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Recent Trades</h3>
+            <p className="text-gray-600">Your latest trading activity</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+              <RefreshCcw className="w-4 h-4" />
+            </button>
+            <Link 
+              href="/dashboard/trades" 
+              className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 font-semibold"
+            >
+              <span>View All</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gradient-to-r from-gray-50 to-blue-50">
+            <tr>
+              <th className="px-8 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Currency Pair</th>
+              <th className="px-8 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Action</th>
+              <th className="px-8 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Entry Price</th>
+              <th className="px-8 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Exit Price</th>
+              <th className="px-8 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">P&L</th>
+              <th className="px-8 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Date</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-100">
+            {sampleTrades.map((trade) => (
+              <tr key={trade.id} className="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 transition-all duration-200">
+                <td className="px-8 py-6 whitespace-nowrap">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center">
+                      <span className="text-xs font-bold text-blue-700">{trade.pair.split('/')[0]}</span>
+                    </div>
+                    <span className="font-bold text-gray-900">{trade.pair}</span>
+                  </div>
+                </td>
+                <td className="px-8 py-6 whitespace-nowrap">
+                  <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-full ${
+                    trade.type === 'Buy' 
+                      ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200' 
+                      : 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200'
+                  }`}>
+                    {trade.type === 'Buy' ? '↗' : '↘'} {trade.type}
+                  </span>
+                </td>
+                <td className="px-8 py-6 whitespace-nowrap">
+                  <span className="font-semibold text-gray-900">{trade.entry}</span>
+                </td>
+                <td className="px-8 py-6 whitespace-nowrap">
+                  <span className="font-semibold text-gray-900">{trade.exit}</span>
+                </td>
+                <td className="px-8 py-6 whitespace-nowrap">
+                  <div className="flex items-center space-x-2">
+                    <span className={`font-bold text-lg ${
+                      trade.profit > 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {trade.profit > 0 ? '+' : ''}{trade.profit}
+                    </span>
+                    <span className="text-gray-500 text-sm">pips</span>
+                  </div>
+                </td>
+                <td className="px-8 py-6 whitespace-nowrap">
+                  <span className="text-gray-600 font-medium">
+                    {new Date(trade.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function ActiveStrategies() {
+  const strategies = [
+    { id: 1, name: 'AI Scalping Pro', status: 'running', profit: '+$1,250', trades: 24, winRate: 89, icon: Bot },
+    { id: 2, name: 'Breakout Hunter', status: 'paused', profit: '+$890', trades: 18, winRate: 72, icon: Target },
+    { id: 3, name: 'Trend Master', status: 'running', profit: '+$2,010', trades: 35, winRate: 94, icon: TrendingUp },
+    { id: 4, name: 'Risk Guardian', status: 'running', profit: '+$567', trades: 12, winRate: 83, icon: Shield },
+  ]
+
+  return (
+    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+      <div className="p-8 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Active Strategies</h3>
+            <p className="text-gray-600">Your automated trading bots</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+              <Plus className="w-4 h-4" />
+            </button>
+            <Link 
+              href="/dashboard/strategies" 
+              className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 font-semibold"
+            >
+              <span>Manage All</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </div>
+      
+      <div className="p-8">
+        <div className="space-y-4">
+          {strategies.map((strategy) => (
+            <div key={strategy.id} className="group relative bg-gradient-to-r from-gray-50 to-blue-50/50 hover:from-blue-50 hover:to-purple-50 rounded-2xl p-6 border border-gray-100 hover:border-blue-200 transition-all duration-300 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 to-white/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className={`p-3 rounded-2xl shadow-lg ${
+                    strategy.status === 'running' 
+                      ? 'bg-gradient-to-br from-green-500 to-emerald-500' 
+                      : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                  }`}>
+                    <strategy.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-lg mb-1">{strategy.name}</h4>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600">
+                      <span>{strategy.trades} trades</span>
+                      <span>•</span>
+                      <span>{strategy.winRate}% win rate</span>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        strategy.status === 'running' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {strategy.status === 'running' ? '🟢 Active' : '⏸ Paused'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-6">
+                  <div className="text-right">
+                    <p className="font-bold text-xl text-green-600">{strategy.profit}</p>
+                    <p className="text-gray-500 text-sm">Total P&L</p>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <button className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors">
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button className={`p-2 rounded-lg transition-colors ${
+                      strategy.status === 'running' 
+                        ? 'text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50' 
+                        : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                    }`}>
+                      {strategy.status === 'running' ? (
+                        <PauseCircle className="w-4 h-4" />
+                      ) : (
+                        <PlayCircle className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   )
 }
 
-function TradeRow({ trade }) {
-  const isProfit = trade.profit > 0
-
-  return (
-    <tr className="hover:bg-gray-50">
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center">
-          <span className="text-sm font-medium text-gray-900">{trade.pair}</span>
-          <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            trade.type === 'BUY' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}>
-            {trade.type}
-          </span>
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {trade.entry} → {trade.exit}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`text-sm font-medium ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
-          {trade.pips > 0 ? '+' : ''}{trade.pips} pips
-        </span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`text-sm font-medium ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
-          ${trade.profit > 0 ? '+' : ''}{trade.profit}
-        </span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {trade.time}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {trade.strategy}
-      </td>
-    </tr>
-  )
-}
-
 export default function Dashboard() {
-  const [timeRange, setTimeRange] = useState('7d')
-  const [isLoading, setIsLoading] = useState(false)
+  const { user, isLoaded } = useUser()
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Bot className="w-8 h-8 text-white" />
+          </div>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent mx-auto"></div>
+          <p className="text-gray-600 mt-4 font-medium">Loading your dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Dashboard Trading</h1>
-            <p className="text-blue-100 mt-1">
-              Pantau performa trading bot Anda secara real-time
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold">$12,450</div>
-            <div className="text-blue-100">Total Balance</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Profit"
-          value="$2,450"
-          change={245}
-          changePercent={5.2}
-          icon={DollarSign}
-          trend="up"
-        />
-        <StatCard
-          title="Win Rate"
-          value="78.5%"
-          change={2.3}
-          changePercent={3.0}
-          icon={Target}
-          trend="up"
-        />
-        <StatCard
-          title="Total Trades"
-          value="156"
-          change={12}
-          changePercent={8.3}
-          icon={Activity}
-          trend="up"
-        />
-        <StatCard
-          title="Active Bots"
-          value="3"
-          change={0}
-          changePercent={0}
-          icon={Zap}
-          trend="neutral"
-        />
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Equity Curve */}
-        <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Equity Curve</h3>
-            <div className="flex space-x-2">
-              {['1d', '7d', '30d'].map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setTimeRange(range)}
-                  className={`px-3 py-1 text-sm rounded-md ${
-                    timeRange === range
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={equityData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Area
-                  type="monotone"
-                  dataKey="balance"
-                  stroke="#3B82F6"
-                  fill="#3B82F6"
-                  fillOpacity={0.1}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Strategy Performance */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Performa Strategi</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={strategyPerformance}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {strategyPerformance.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 space-y-2">
-            {strategyPerformance.map((strategy, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div 
-                    className="w-3 h-3 rounded-full mr-2"
-                    style={{ backgroundColor: strategy.color }}
-                  />
-                  <span className="text-sm text-gray-600">{strategy.name}</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900">{strategy.value}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Trades */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Trading Terbaru</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Pair
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Entry → Exit
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Pips
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Profit
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Time
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Strategy
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {recentTrades.map((trade) => (
-                <TradeRow key={trade.id} trade={trade} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-6 py-4 border-t border-gray-200">
-          <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-            Lihat Semua Trading →
-          </button>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <TrendingUp className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <h4 className="text-lg font-semibold text-gray-900">Mulai Backtest</h4>
-              <p className="text-sm text-gray-500">Uji strategi dengan data historis</p>
-            </div>
-          </div>
-          <button className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-            Buat Backtest Baru
-          </button>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <div className="p-3 bg-green-50 rounded-lg">
-              <Zap className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <h4 className="text-lg font-semibold text-gray-900">Aktifkan Bot</h4>
-              <p className="text-sm text-gray-500">Mulai trading otomatis</p>
-            </div>
-          </div>
-          <button className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
-            Setup Trading Bot
-          </button>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <div className="p-3 bg-purple-50 rounded-lg">
-              <Award className="h-6 w-6 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <h4 className="text-lg font-semibold text-gray-900">Upgrade Premium</h4>
-              <p className="text-sm text-gray-500">Akses strategi advanced</p>
-            </div>
-          </div>
-          <button className="mt-4 w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-2 px-4 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors">
-            Upgrade Sekarang
-          </button>
-        </div>
-      </div>
-
-      {/* Market Status */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Market</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-            <div>
-              <div className="text-sm font-medium text-gray-700">EUR/USD</div>
-              <div className="text-lg font-bold text-gray-900">1.0845</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm font-medium text-green-600">+0.11%</div>
-              <div className="text-xs text-gray-500">+0.0012</div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
-            <div>
-              <div className="text-sm font-medium text-gray-700">GBP/USD</div>
-              <div className="text-lg font-bold text-gray-900">1.2634</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm font-medium text-red-600">-0.17%</div>
-              <div className="text-xs text-gray-500">-0.0021</div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-            <div>
-              <div className="text-sm font-medium text-gray-700">USD/JPY</div>
-              <div className="text-lg font-bold text-gray-900">149.85</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm font-medium text-green-600">+0.30%</div>
-              <div className="text-xs text-gray-500">+0.45</div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-            <div>
-              <div className="text-sm font-medium text-gray-700">AUD/USD</div>
-              <div className="text-lg font-bold text-gray-900">0.6523</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm font-medium text-green-600">+0.12%</div>
-              <div className="text-xs text-gray-500">+0.0008</div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 pt-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <WelcomeSection user={user} />
+        <QuickStats />
+        <QuickActions />
+        
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+          <RecentTrades />
+          <ActiveStrategies />
         </div>
       </div>
     </div>
