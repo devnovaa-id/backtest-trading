@@ -4,7 +4,12 @@ const isProtectedRoute = createRouteMatcher([
   '/dashboard(.*)',
   '/backtest(.*)',
   '/bot(.*)',
-  '/profile(.*)'
+  '/profile(.*)',
+  '/admin(.*)'
+])
+
+const isAdminRoute = createRouteMatcher([
+  '/admin(.*)'
 ])
 
 const isPremiumRoute = createRouteMatcher([
@@ -28,6 +33,18 @@ export default clerkMiddleware(async (auth, req) => {
       return Response.redirect(new URL('/sign-in', req.url))
     }
   }
+
+  // Check admin access
+  if (isAdminRoute(req)) {
+    if (!userId) {
+      return Response.redirect(new URL('/sign-in', req.url))
+    }
+    
+    const userRole = sessionClaims?.metadata?.role
+    if (userRole !== 'admin') {
+      return Response.redirect(new URL('/dashboard', req.url))
+    }
+  }
   
   // Check if user is trying to access premium features
   if (isPremiumRoute(req)) {
@@ -42,7 +59,7 @@ export default clerkMiddleware(async (auth, req) => {
   }
   
   // Auto-redirect free users to upgrade page when accessing certain features
-  if (userId && !isUpgradeRoute(req)) {
+  if (userId && !isUpgradeRoute(req) && !isAdminRoute(req)) {
     const userRole = sessionClaims?.metadata?.role
     const pathname = req.nextUrl.pathname
     

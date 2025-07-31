@@ -265,6 +265,33 @@ CREATE TABLE blog_comments (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Blog likes table (for like functionality)
+CREATE TABLE blog_likes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) NOT NULL,
+  post_id UUID REFERENCES blog_posts(id) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, post_id)
+);
+
+-- Blog bookmarks table (for bookmark functionality)
+CREATE TABLE blog_bookmarks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) NOT NULL,
+  post_id UUID REFERENCES blog_posts(id) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, post_id)
+);
+
+-- Comment likes table (for comment like functionality)
+CREATE TABLE comment_likes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) NOT NULL,
+  comment_id UUID REFERENCES blog_comments(id) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, comment_id)
+);
+
 -- Admin activity logs
 CREATE TABLE admin_activities (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -288,10 +315,21 @@ CREATE INDEX idx_blog_posts_published_at ON blog_posts(published_at);
 CREATE INDEX idx_blog_comments_post_id ON blog_comments(post_id);
 CREATE INDEX idx_admin_activities_admin_id ON admin_activities(admin_id);
 
+-- Indexes for new tables
+CREATE INDEX idx_blog_likes_user_id ON blog_likes(user_id);
+CREATE INDEX idx_blog_likes_post_id ON blog_likes(post_id);
+CREATE INDEX idx_blog_bookmarks_user_id ON blog_bookmarks(user_id);
+CREATE INDEX idx_blog_bookmarks_post_id ON blog_bookmarks(post_id);
+CREATE INDEX idx_comment_likes_user_id ON comment_likes(user_id);
+CREATE INDEX idx_comment_likes_comment_id ON comment_likes(comment_id);
+
 -- RLS Policies for new tables
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blog_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blog_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE blog_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE blog_bookmarks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE comment_likes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_activities ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own orders" ON orders FOR SELECT USING (user_id IN (SELECT id FROM users WHERE clerk_id = current_setting('request.jwt.claims', true)::json->>'sub'));
@@ -299,6 +337,11 @@ CREATE POLICY "Users can create own orders" ON orders FOR INSERT WITH CHECK (use
 
 CREATE POLICY "Published posts are viewable by everyone" ON blog_posts FOR SELECT USING (status = 'published');
 CREATE POLICY "Approved comments are viewable by everyone" ON blog_comments FOR SELECT USING (status = 'approved');
+
+-- Blog interaction policies
+CREATE POLICY "Users can manage own likes" ON blog_likes FOR ALL USING (user_id IN (SELECT id FROM users WHERE clerk_id = current_setting('request.jwt.claims', true)::json->>'sub'));
+CREATE POLICY "Users can manage own bookmarks" ON blog_bookmarks FOR ALL USING (user_id IN (SELECT id FROM users WHERE clerk_id = current_setting('request.jwt.claims', true)::json->>'sub'));
+CREATE POLICY "Users can manage own comment likes" ON comment_likes FOR ALL USING (user_id IN (SELECT id FROM users WHERE clerk_id = current_setting('request.jwt.claims', true)::json->>'sub'));
 
 -- Insert default data
 INSERT INTO blog_categories (name, slug, description) VALUES

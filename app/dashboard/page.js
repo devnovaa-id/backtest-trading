@@ -1,420 +1,364 @@
 'use client'
-
 import { useState, useEffect } from 'react'
+import { useUser } from '@clerk/nextjs'
+import Link from 'next/link'
 import { 
   TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Activity, 
-  BarChart3,
-  Zap,
-  Clock,
-  Target,
+  BarChart3, 
+  Zap, 
+  Settings, 
+  CreditCard, 
   Award,
-  AlertCircle
+  Users,
+  ArrowUpRight,
+  ArrowDownRight,
+  DollarSign,
+  Activity,
+  Calendar,
+  PlayCircle,
+  PauseCircle,
+  Eye,
+  Edit,
+  Trash2,
+  Plus,
+  Star,
+  Bookmark,
+  Share2,
+  Download,
+  Filter,
+  Search
 } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts'
 
-// Mock data - in real app this would come from API
-const equityData = [
-  { date: '2024-01-01', balance: 10000 },
-  { date: '2024-01-02', balance: 10150 },
-  { date: '2024-01-03', balance: 10080 },
-  { date: '2024-01-04', balance: 10320 },
-  { date: '2024-01-05', balance: 10290 },
-  { date: '2024-01-06', balance: 10450 },
-  { date: '2024-01-07', balance: 10380 },
-  { date: '2024-01-08', balance: 10520 },
-  { date: '2024-01-09', balance: 10680 },
-  { date: '2024-01-10', balance: 10750 }
-]
-
-const strategyPerformance = [
-  { name: 'RSI Extremes', value: 35, color: '#3B82F6' },
-  { name: 'Heikin-Ashi Pullback', value: 25, color: '#10B981' },
-  { name: 'Stochastic Signal', value: 20, color: '#F59E0B' },
-  { name: 'Bollinger RSI ADX', value: 20, color: '#EF4444' }
-]
-
-const recentTrades = [
-  {
-    id: 1,
-    pair: 'EUR/USD',
-    type: 'BUY',
-    entry: 1.0845,
-    exit: 1.0867,
-    pips: 22,
-    profit: 220,
-    time: '10:30',
-    strategy: 'RSI Extremes'
-  },
-  {
-    id: 2,
-    pair: 'GBP/USD',
-    type: 'SELL',
-    entry: 1.2634,
-    exit: 1.2615,
-    pips: 19,
-    profit: 190,
-    time: '09:45',
-    strategy: 'Bollinger RSI ADX'
-  },
-  {
-    id: 3,
-    pair: 'USD/JPY',
-    type: 'BUY',
-    entry: 149.85,
-    exit: 149.62,
-    pips: -23,
-    profit: -230,
-    time: '08:20',
-    strategy: 'Stochastic Signal'
-  }
-]
-
-function StatCard({ title, value, change, changePercent, icon: Icon, trend }) {
-  const isPositive = change >= 0
+function WelcomeSection({ user }) {
+  const userRole = user?.publicMetadata?.role || 'user'
+  const isNewUser = new Date(user?.createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+    <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white mb-8">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-          <div className="flex items-center mt-2">
-            {isPositive ? (
-              <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
-            ) : (
-              <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
-            )}
-            <span className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-              {isPositive ? '+' : ''}{change} ({isPositive ? '+' : ''}{changePercent}%)
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">
+            Selamat datang kembali, {user?.firstName || 'Trader'}! 👋
+          </h1>
+          <p className="text-blue-100 mb-4">
+            {isNewUser 
+              ? 'Mulai perjalanan trading Anda dengan strategi terbaik kami'
+              : 'Lanjutkan perjalanan trading sukses Anda'
+            }
+          </p>
+          <div className="flex items-center space-x-4">
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+              userRole === 'premium' 
+                ? 'bg-yellow-500 text-yellow-900' 
+                : userRole === 'admin'
+                ? 'bg-red-500 text-white'
+                : 'bg-gray-500 text-white'
+            }`}>
+              {userRole === 'premium' ? 'Premium' : userRole === 'admin' ? 'Admin' : 'Free'}
+            </span>
+            <span className="text-blue-100 text-sm">
+              Bergabung sejak {new Date(user?.createdAt).toLocaleDateString('id-ID')}
             </span>
           </div>
         </div>
-        <div className={`p-3 rounded-lg ${isPositive ? 'bg-green-50' : 'bg-red-50'}`}>
-          <Icon className={`h-6 w-6 ${isPositive ? 'text-green-600' : 'text-red-600'}`} />
+        <div className="hidden md:block">
+          <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
+            <TrendingUp className="w-12 h-12 text-white" />
+          </div>
+        </div>
+      </div>
+      
+      {userRole === 'user' && (
+        <div className="mt-6 p-4 bg-white/10 rounded-lg">
+          <p className="text-sm mb-2">🚀 Upgrade ke Premium untuk akses fitur lengkap!</p>
+          <Link 
+            href="/dashboard/upgrade" 
+            className="inline-flex items-center text-sm bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            Upgrade Sekarang
+            <ArrowUpRight className="w-4 h-4 ml-1" />
+          </Link>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function QuickStats() {
+  const [stats, setStats] = useState({
+    totalTrades: 0,
+    winRate: 0,
+    totalProfit: 0,
+    activeStrategies: 0
+  })
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="bg-white rounded-xl p-6 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Total Trades</p>
+            <p className="text-2xl font-bold text-gray-900">{stats.totalTrades}</p>
+          </div>
+          <div className="p-3 bg-blue-100 rounded-lg">
+            <BarChart3 className="w-6 h-6 text-blue-600" />
+          </div>
+        </div>
+        <div className="mt-4 flex items-center">
+          <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+          <span className="text-green-500 text-sm font-medium">+12%</span>
+          <span className="text-gray-500 text-sm ml-1">dari bulan lalu</span>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl p-6 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Win Rate</p>
+            <p className="text-2xl font-bold text-gray-900">{stats.winRate}%</p>
+          </div>
+          <div className="p-3 bg-green-100 rounded-lg">
+            <Award className="w-6 h-6 text-green-600" />
+          </div>
+        </div>
+        <div className="mt-4 flex items-center">
+          <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+          <span className="text-green-500 text-sm font-medium">+5%</span>
+          <span className="text-gray-500 text-sm ml-1">dari minggu lalu</span>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl p-6 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Total Profit</p>
+            <p className="text-2xl font-bold text-gray-900">$1,234</p>
+          </div>
+          <div className="p-3 bg-purple-100 rounded-lg">
+            <DollarSign className="w-6 h-6 text-purple-600" />
+          </div>
+        </div>
+        <div className="mt-4 flex items-center">
+          <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+          <span className="text-green-500 text-sm font-medium">+18%</span>
+          <span className="text-gray-500 text-sm ml-1">dari bulan lalu</span>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl p-6 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Active Strategies</p>
+            <p className="text-2xl font-bold text-gray-900">{stats.activeStrategies}</p>
+          </div>
+          <div className="p-3 bg-orange-100 rounded-lg">
+            <Activity className="w-6 h-6 text-orange-600" />
+          </div>
+        </div>
+        <div className="mt-4 flex items-center">
+          <span className="text-gray-500 text-sm">2 running, 1 paused</span>
         </div>
       </div>
     </div>
   )
 }
 
-function TradeRow({ trade }) {
-  const isProfit = trade.profit > 0
+function QuickActions() {
+  return (
+    <div className="bg-white rounded-xl p-6 shadow-lg mb-8">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Link 
+          href="/dashboard/backtest"
+          className="flex items-center justify-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+        >
+          <PlayCircle className="w-5 h-5 text-blue-600 mr-2" />
+          <span className="text-blue-600 font-medium">New Backtest</span>
+        </Link>
+        <Link 
+          href="/dashboard/strategies"
+          className="flex items-center justify-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+        >
+          <Zap className="w-5 h-5 text-green-600 mr-2" />
+          <span className="text-green-600 font-medium">Strategies</span>
+        </Link>
+        <Link 
+          href="/dashboard/analytics"
+          className="flex items-center justify-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+        >
+          <BarChart3 className="w-5 h-5 text-purple-600 mr-2" />
+          <span className="text-purple-600 font-medium">Analytics</span>
+        </Link>
+        <Link 
+          href="/dashboard/settings"
+          className="flex items-center justify-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
+        >
+          <Settings className="w-5 h-5 text-orange-600 mr-2" />
+          <span className="text-orange-600 font-medium">Settings</span>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function RecentTrades() {
+  const sampleTrades = [
+    { id: 1, pair: 'EUR/USD', type: 'Buy', entry: 1.0850, exit: 1.0890, profit: 40, date: '2024-01-15' },
+    { id: 2, pair: 'GBP/USD', type: 'Sell', entry: 1.2750, exit: 1.2720, profit: 30, date: '2024-01-14' },
+    { id: 3, pair: 'USD/JPY', type: 'Buy', entry: 148.50, exit: 148.20, profit: -30, date: '2024-01-14' },
+  ]
 
   return (
-    <tr className="hover:bg-gray-50">
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center">
-          <span className="text-sm font-medium text-gray-900">{trade.pair}</span>
-          <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            trade.type === 'BUY' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}>
-            {trade.type}
-          </span>
+    <div className="bg-white rounded-xl shadow-lg">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Recent Trades</h3>
+          <Link href="/dashboard/trades" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+            View All
+          </Link>
         </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {trade.entry} → {trade.exit}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`text-sm font-medium ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
-          {trade.pips > 0 ? '+' : ''}{trade.pips} pips
-        </span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`text-sm font-medium ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
-          ${trade.profit > 0 ? '+' : ''}{trade.profit}
-        </span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {trade.time}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {trade.strategy}
-      </td>
-    </tr>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pair</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entry</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exit</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {sampleTrades.map((trade) => (
+              <tr key={trade.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {trade.pair}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    trade.type === 'Buy' 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {trade.type}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {trade.entry}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {trade.exit}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <span className={`font-medium ${
+                    trade.profit > 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {trade.profit > 0 ? '+' : ''}{trade.profit} pips
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {new Date(trade.date).toLocaleDateString('id-ID')}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function ActiveStrategies() {
+  const strategies = [
+    { id: 1, name: 'Scalping MA Cross', status: 'running', profit: '+125 USD', trades: 24 },
+    { id: 2, name: 'Breakout Pro', status: 'paused', profit: '+89 USD', trades: 18 },
+    { id: 3, name: 'Trend Following', status: 'running', profit: '+201 USD', trades: 35 },
+  ]
+
+  return (
+    <div className="bg-white rounded-xl shadow-lg">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Active Strategies</h3>
+          <Link href="/dashboard/strategies" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+            Manage All
+          </Link>
+        </div>
+      </div>
+      <div className="p-6">
+        <div className="space-y-4">
+          {strategies.map((strategy) => (
+            <div key={strategy.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+              <div className="flex items-center space-x-4">
+                <div className={`p-2 rounded-lg ${
+                  strategy.status === 'running' 
+                    ? 'bg-green-100' 
+                    : 'bg-gray-100'
+                }`}>
+                  {strategy.status === 'running' ? (
+                    <PlayCircle className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <PauseCircle className="w-5 h-5 text-gray-600" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">{strategy.name}</h4>
+                  <p className="text-sm text-gray-500">{strategy.trades} trades</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-medium text-green-600">{strategy.profit}</p>
+                <div className="flex items-center space-x-2 mt-2">
+                  <button className="text-blue-600 hover:text-blue-700">
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button className="text-green-600 hover:text-green-700">
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button className={
+                    strategy.status === 'running' 
+                      ? 'text-yellow-600 hover:text-yellow-700' 
+                      : 'text-green-600 hover:text-green-700'
+                  }>
+                    {strategy.status === 'running' ? (
+                      <PauseCircle className="w-4 h-4" />
+                    ) : (
+                      <PlayCircle className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 
 export default function Dashboard() {
-  const [timeRange, setTimeRange] = useState('7d')
-  const [isLoading, setIsLoading] = useState(false)
+  const { user, isLoaded } = useUser()
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Dashboard Trading</h1>
-            <p className="text-blue-100 mt-1">
-              Pantau performa trading bot Anda secara real-time
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold">$12,450</div>
-            <div className="text-blue-100">Total Balance</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Profit"
-          value="$2,450"
-          change={245}
-          changePercent={5.2}
-          icon={DollarSign}
-          trend="up"
-        />
-        <StatCard
-          title="Win Rate"
-          value="78.5%"
-          change={2.3}
-          changePercent={3.0}
-          icon={Target}
-          trend="up"
-        />
-        <StatCard
-          title="Total Trades"
-          value="156"
-          change={12}
-          changePercent={8.3}
-          icon={Activity}
-          trend="up"
-        />
-        <StatCard
-          title="Active Bots"
-          value="3"
-          change={0}
-          changePercent={0}
-          icon={Zap}
-          trend="neutral"
-        />
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Equity Curve */}
-        <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Equity Curve</h3>
-            <div className="flex space-x-2">
-              {['1d', '7d', '30d'].map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setTimeRange(range)}
-                  className={`px-3 py-1 text-sm rounded-md ${
-                    timeRange === range
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={equityData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Area
-                  type="monotone"
-                  dataKey="balance"
-                  stroke="#3B82F6"
-                  fill="#3B82F6"
-                  fillOpacity={0.1}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Strategy Performance */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Performa Strategi</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={strategyPerformance}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {strategyPerformance.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 space-y-2">
-            {strategyPerformance.map((strategy, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div 
-                    className="w-3 h-3 rounded-full mr-2"
-                    style={{ backgroundColor: strategy.color }}
-                  />
-                  <span className="text-sm text-gray-600">{strategy.name}</span>
-                </div>
-                <span className="text-sm font-medium text-gray-900">{strategy.value}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Trades */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Trading Terbaru</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Pair
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Entry → Exit
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Pips
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Profit
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Time
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Strategy
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {recentTrades.map((trade) => (
-                <TradeRow key={trade.id} trade={trade} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-6 py-4 border-t border-gray-200">
-          <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-            Lihat Semua Trading →
-          </button>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <TrendingUp className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <h4 className="text-lg font-semibold text-gray-900">Mulai Backtest</h4>
-              <p className="text-sm text-gray-500">Uji strategi dengan data historis</p>
-            </div>
-          </div>
-          <button className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-            Buat Backtest Baru
-          </button>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <div className="p-3 bg-green-50 rounded-lg">
-              <Zap className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <h4 className="text-lg font-semibold text-gray-900">Aktifkan Bot</h4>
-              <p className="text-sm text-gray-500">Mulai trading otomatis</p>
-            </div>
-          </div>
-          <button className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
-            Setup Trading Bot
-          </button>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <div className="p-3 bg-purple-50 rounded-lg">
-              <Award className="h-6 w-6 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <h4 className="text-lg font-semibold text-gray-900">Upgrade Premium</h4>
-              <p className="text-sm text-gray-500">Akses strategi advanced</p>
-            </div>
-          </div>
-          <button className="mt-4 w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-2 px-4 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors">
-            Upgrade Sekarang
-          </button>
-        </div>
-      </div>
-
-      {/* Market Status */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Market</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-            <div>
-              <div className="text-sm font-medium text-gray-700">EUR/USD</div>
-              <div className="text-lg font-bold text-gray-900">1.0845</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm font-medium text-green-600">+0.11%</div>
-              <div className="text-xs text-gray-500">+0.0012</div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
-            <div>
-              <div className="text-sm font-medium text-gray-700">GBP/USD</div>
-              <div className="text-lg font-bold text-gray-900">1.2634</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm font-medium text-red-600">-0.17%</div>
-              <div className="text-xs text-gray-500">-0.0021</div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-            <div>
-              <div className="text-sm font-medium text-gray-700">USD/JPY</div>
-              <div className="text-lg font-bold text-gray-900">149.85</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm font-medium text-green-600">+0.30%</div>
-              <div className="text-xs text-gray-500">+0.45</div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-            <div>
-              <div className="text-sm font-medium text-gray-700">AUD/USD</div>
-              <div className="text-lg font-bold text-gray-900">0.6523</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm font-medium text-green-600">+0.12%</div>
-              <div className="text-xs text-gray-500">+0.0008</div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <WelcomeSection user={user} />
+        <QuickStats />
+        <QuickActions />
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <RecentTrades />
+          <ActiveStrategies />
         </div>
       </div>
     </div>
