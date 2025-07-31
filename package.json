@@ -1,0 +1,27 @@
+{
+  "name": "trader-bot",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^6.28.0",
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.53.0",
+    "axios": "^1.11.0",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.535.0",
+    "next": "15.4.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "recharts": "^3.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4"
+  }
+}
