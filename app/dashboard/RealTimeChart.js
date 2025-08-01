@@ -8,13 +8,14 @@ import {
   Clock,
   PauseCircle,
   PlayCircle,
-  Fullscreen,
-  Gauge
+  Gauge,
+  Search
 } from 'lucide-react'
 import { Chart } from 'chart.js/auto'
 
-export default function RealTimeChart({ symbol = 'EURUSD' }) {
+export default function RealTimeChart({ initialSymbol = 'EURUSD' }) {
   const chartRef = useRef(null)
+  const [symbol, setSymbol] = useState(initialSymbol)
   const [timeframe, setTimeframe] = useState('M5')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -23,6 +24,9 @@ export default function RealTimeChart({ symbol = 'EURUSD' }) {
   const [chartType, setChartType] = useState('candlestick')
   const [isRealTime, setIsRealTime] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(null)
+  const [tickers, setTickers] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showTickerSearch, setShowTickerSearch] = useState(false)
   const chartInstance = useRef(null)
 
   // Fungsi untuk mendapatkan multiplier berdasarkan timeframe
@@ -31,11 +35,13 @@ export default function RealTimeChart({ symbol = 'EURUSD' }) {
       case 'M1': return 1
       case 'M5': return 5
       case 'M15': return 15
+      case 'H1': return 60
+      case 'D1': return 1440
       default: return 5
     }
   }
 
-  // Format symbol untuk Polygon API (forex pairs need 'C:' prefix)
+  // Format symbol untuk Polygon API
   const formatSymbol = (sym) => {
     if (/^[A-Z]{6}$/.test(sym)) {
       return `C:${sym}`;
@@ -47,27 +53,70 @@ export default function RealTimeChart({ symbol = 'EURUSD' }) {
   const formatTime = (timestamp) => {
     const date = new Date(timestamp)
     switch(timeframe) {
-      case 'M1': return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      case 'M5': return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      case 'M15': return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      default: return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+      case 'M1': 
+      case 'M5': 
+      case 'M15': 
+      case 'H1': 
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      case 'D1': 
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+      default: 
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   }
 
-  // Fetch data dari Polygon API - FIXED
+  // Fetch tickers dari Polygon API
+  const fetchTickers = async () => {
+    try {
+      const API_KEY = process.env.NEXT_PUBLIC_POLYGON_API_KEY;
+      if (!API_KEY) {
+        throw new Error('Polygon API key is not configured');
+      }
+
+      const res = await fetch(
+        `https://api.polygon.io/v3/reference/tickers?market=stocks,forex,crypto&active=true&limit=1000&apiKey=${API_KEY}`
+      )
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to fetch tickers (status: ${res.status})`);
+      }
+      
+      const data = await res.json()
+      
+      if (data.status === "ERROR" || !data.results || data.results.length === 0) {
+        throw new Error(data.error || 'No tickers available')
+      }
+      
+      // Format tickers untuk dropdown
+      const formattedTickers = data.results.map(ticker => ({
+        symbol: ticker.ticker,
+        name: ticker.name,
+        market: ticker.market,
+        currency: ticker.currency_name || 'USD'
+      }))
+      
+      setTickers(formattedTickers)
+      
+    } catch (err) {
+      console.error('Error fetching tickers:', err)
+      setError(err.message)
+    }
+  }
+
+  // Fetch data chart dari Polygon API
   const fetchData = async () => {
     setIsLoading(true)
     setError(null)
     
     try {
-      // Gunakan environment variable
       const API_KEY = process.env.NEXT_PUBLIC_POLYGON_API_KEY;
       if (!API_KEY) {
         throw new Error('Polygon API key is not configured');
       }
 
       const multiplier = getMultiplier(timeframe)
-      const timespan = 'minute'
+      const timespan = timeframe === 'D1' ? 'day' : 'minute'
       const formattedSymbol = formatSymbol(symbol);
       
       const res = await fetch(
@@ -75,14 +124,12 @@ export default function RealTimeChart({ symbol = 'EURUSD' }) {
       )
       
       if (!res.ok) {
-        // Dapatkan pesan error dari response jika ada
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to fetch market data (status: ${res.status})`);
       }
       
       const data = await res.json()
       
-      // Periksa status response dari Polygon
       if (data.status === "ERROR" || !data.results || data.results.length === 0) {
         throw new Error(data.error || 'No market data available')
       }
@@ -180,9 +227,10 @@ export default function RealTimeChart({ symbol = 'EURUSD' }) {
           x: {
             type: 'time',
             time: {
-              unit: timeframe === 'M1' ? 'minute' : 'minute',
+              unit: timeframe === 'D1' ? 'day' : 'minute',
               displayFormats: {
-                minute: 'HH:mm'
+                minute: 'HH:mm',
+                day: 'MMM d'
               }
             },
             ticks: {
@@ -228,17 +276,16 @@ export default function RealTimeChart({ symbol = 'EURUSD' }) {
     })
   }
 
-  // Pembaruan data real-time - FIXED
+  // Pembaruan data real-time
   const updateChart = async () => {
     if (!chartInstance.current) return
     
     try {
-      // Gunakan environment variable
       const API_KEY = process.env.NEXT_PUBLIC_POLYGON_API_KEY;
       if (!API_KEY) return;
 
       const multiplier = getMultiplier(timeframe)
-      const timespan = 'minute'
+      const timespan = timeframe === 'D1' ? 'day' : 'minute'
       const formattedSymbol = formatSymbol(symbol);
       
       // Ambil data terbaru
@@ -293,9 +340,16 @@ export default function RealTimeChart({ symbol = 'EURUSD' }) {
     }
   }
 
+  // Handler untuk mengganti symbol
+  const handleSymbolChange = (newSymbol) => {
+    setSymbol(newSymbol)
+    setShowTickerSearch(false)
+  }
+
   // Inisialisasi chart saat komponen dimount
   useEffect(() => {
     initChart()
+    fetchTickers()
     
     return () => {
       if (chartInstance.current) {
@@ -309,8 +363,8 @@ export default function RealTimeChart({ symbol = 'EURUSD' }) {
     let intervalId
     
     if (isRealTime) {
-      updateChart(); // Update segera saat diaktifkan
-      intervalId = setInterval(updateChart, 10000) // Update setiap 10 detik
+      updateChart()
+      intervalId = setInterval(updateChart, 15000) // Update setiap 15 detik
     }
     
     return () => {
@@ -323,15 +377,65 @@ export default function RealTimeChart({ symbol = 'EURUSD' }) {
     setChartType(type)
   }
 
+  // Filter tickers berdasarkan pencarian
+  const filteredTickers = tickers.filter(ticker => 
+    ticker.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ticker.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
   return (
     <div className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 mb-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
         <div className="mb-4 md:mb-0">
           <h3 className="text-2xl font-bold text-gray-900 mb-2">Real-Time Chart</h3>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="px-3 py-1 bg-gray-100 rounded-full text-sm font-medium">
-              {symbol}
+            <div className="relative">
+              <div 
+                className="px-3 py-1 bg-gray-100 rounded-full text-sm font-medium flex items-center cursor-pointer hover:bg-gray-200 transition-colors"
+                onClick={() => setShowTickerSearch(!showTickerSearch)}
+              >
+                {symbol}
+                <Search className="ml-2 w-4 h-4" />
+              </div>
+              
+              {showTickerSearch && (
+                <div className="absolute top-full left-0 mt-2 w-80 max-h-96 bg-white rounded-xl shadow-lg border border-gray-200 z-10 overflow-hidden">
+                  <div className="p-3 border-b">
+                    <input
+                      type="text"
+                      placeholder="Search symbol or name..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="overflow-y-auto max-h-72">
+                    {filteredTickers.length > 0 ? (
+                      filteredTickers.map(ticker => (
+                        <div 
+                          key={ticker.symbol}
+                          className="px-4 py-3 hover:bg-gray-100 cursor-pointer flex justify-between items-center border-b border-gray-100 last:border-b-0"
+                          onClick={() => handleSymbolChange(ticker.symbol)}
+                        >
+                          <div>
+                            <div className="font-medium">{ticker.symbol}</div>
+                            <div className="text-sm text-gray-500 truncate">{ticker.name}</div>
+                          </div>
+                          <div className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                            {ticker.market}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-6 text-center text-gray-500">
+                        No tickers found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
+            
             {price && change && (
               <div className="flex items-center">
                 <span className="text-xl font-bold mr-2">{price}</span>
@@ -350,7 +454,7 @@ export default function RealTimeChart({ symbol = 'EURUSD' }) {
         
         <div className="flex flex-wrap gap-2">
           <div className="bg-gray-100 rounded-xl p-1 flex">
-            {['M1', 'M5', 'M15'].map((tf) => (
+            {['M1', 'M5', 'M15', 'H1', 'D1'].map((tf) => (
               <button
                 key={tf}
                 className={`px-3 py-1 rounded-lg text-sm font-medium ${
@@ -434,17 +538,11 @@ export default function RealTimeChart({ symbol = 'EURUSD' }) {
           <div className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm">
             Interval: {timeframe}
           </div>
-        </div>
-        
-        <div className="flex space-x-2">
-          <button className="p-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors">
-            &lt;
-          </button>
-          <button className="p-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors">
-            &gt;
-          </button>
+          <div className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm">
+            Symbol: {symbol}
+          </div>
         </div>
       </div>
     </div>
   )
-}
+                                                           }
