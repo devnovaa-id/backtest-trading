@@ -1,4 +1,3 @@
-// app/dashboard/backtest.js
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
@@ -48,8 +47,8 @@ export default function BacktestDashboard() {
   // State untuk pengaturan bot
   const [botSettings, setBotSettings] = useState({
     symbol: 'EURUSD',
-    timeframe: 'M15',
-    strategy: 'SMA Crossover',
+    timeframe: 'M1',
+    strategy: 'Multi-Timeframe EMA',
     riskPerTrade: 1,
     stopLoss: 20,
     takeProfit: 40,
@@ -59,11 +58,11 @@ export default function BacktestDashboard() {
     isRunning: false
   })
   
-  // State untuk data chart
-  const [chartData, setChartData] = useState({
-    prices: [],
-    smaFast: [],
-    smaSlow: [],
+  // State untuk data multi-timeframe
+  const [timeframeData, setTimeframeData] = useState({
+    m1: [],
+    m5: [],
+    m15: [],
     signals: []
   })
   
@@ -87,20 +86,17 @@ export default function BacktestDashboard() {
     return date.toISOString().split('T')[0]
   }
   
-  // Ambil data historis dari Polygon.io
+  // Ambil data historis M1 dari Polygon.io
   const fetchHistoricalData = async () => {
     try {
       setIsLoading(true)
       setError(null)
       
-      const multiplier = botSettings.timeframe === 'M1' ? 1 : 
-                        botSettings.timeframe === 'M5' ? 5 : 15
-      const timespan = 'minute'
       const fromDate = formatDateForAPI(startDate)
       const toDate = formatDateForAPI(endDate)
       
       const response = await fetch(
-        `https://api.polygon.io/v2/aggs/ticker/C:${botSettings.symbol}/range/${multiplier}/${timespan}/${fromDate}/${toDate}?adjusted=true&sort=asc&limit=50000&apiKey=${POLYGON_API_KEY}`
+        `https://api.polygon.io/v2/aggs/ticker/C:${botSettings.symbol}/range/1/minute/${fromDate}/${toDate}?adjusted=true&sort=asc&limit=50000&apiKey=${POLYGON_API_KEY}`
       )
       
       if (!response.ok) {
@@ -113,26 +109,32 @@ export default function BacktestDashboard() {
         throw new Error('No market data available')
       }
       
-      // Proses data untuk chart
-      const prices = data.results.map(bar => ({
+      // Proses data M1
+      const m1Data = data.results.map(bar => ({
         time: new Date(bar.t).toISOString(),
         open: bar.o,
         high: bar.h,
         low: bar.l,
-        close: bar.c
+        close: bar.c,
+        volume: bar.v
       }))
       
-      // Hitung SMA (Simple Moving Average)
-      const smaFast = calculateSMA(prices, 5)
-      const smaSlow = calculateSMA(prices, 20)
+      // Bangun timeframe M5 dan M15 dari M1
+      const m5Data = buildHigherTimeframe(m1Data, 5)
+      const m15Data = buildHigherTimeframe(m5Data, 3)
       
-      // Generate sinyal trading
-      const signals = generateSignals(prices, smaFast, smaSlow)
+      // Hitung EMA untuk setiap timeframe
+      const ema21M15 = calculateEMA(m15Data, 21)
+      const ema55M15 = calculateEMA(m15Data, 55)
+      const ema8M5 = calculateEMA(m5Data, 8)
       
-      setChartData({ prices, smaFast, smaSlow, signals })
-      setCurrentTime(prices[0]?.time || '')
+      // Generate sinyal trading multi-timeframe
+      const signals = generateMultiTimeframeSignals(m1Data, m5Data, m15Data, ema21M15, ema55M15, ema8M5)
       
-      return { prices, smaFast, smaSlow, signals }
+      setTimeframeData({ m1: m1Data, m5: m5Data, m15: m15Data, signals })
+      setCurrentTime(m1Data[0]?.time || '')
+      
+      return { m1Data, m5Data, m15Data, signals }
     } catch (error) {
       console.error('Error fetching historical data:', error)
       setError(error.message)
@@ -142,49 +144,117 @@ export default function BacktestDashboard() {
     }
   }
   
-  // Hitung Simple Moving Average
-  const calculateSMA = (data, period) => {
-    return data.map((price, index) => {
-      if (index < period - 1) return null
-      const sum = data
-        .slice(index - period + 1, index + 1)
-        .reduce((acc, item) => acc + item.close, 0)
-      return sum / period
-    })
+  // Bangun timeframe yang lebih tinggi
+  const buildHigherTimeframe = (data, factor) => {
+    const higherData = []
+    
+    for (let i = 0; i < data.length; i += factor) {
+      const group = data.slice(i, i + factor)
+      if (group.length === 0) break
+      
+      const open = group[0].open
+      const close = group[group.length - 1].close
+      const high = Math.max(...group.map(b => b.high))
+      const low = Math.min(...group.map(b => b.low))
+      const time = group[0].time
+      
+      higherData.push({
+        time,
+        open,
+        high,
+        low,
+        close,
+        volume: group.reduce((sum, b) => sum + b.volume, 0)
+      })
+    }
+    
+    return higherData
   }
   
-  // Generate sinyal trading berdasarkan SMA crossover
-  const generateSignals = (prices, smaFast, smaSlow) => {
-    return prices.map((price, index) => {
-      if (index < 20 || !smaFast[index] || !smaSlow[index]) return null
+  // Hitung Exponential Moving Average (EMA)
+  const calculateEMA = (data, period, key = 'close') => {
+    if (data.length < period) return Array(data.length).fill(null)
+    
+    const emaValues = []
+    const multiplier = 2 / (period + 1)
+    
+    // SMA untuk nilai pertama
+    const sma = data.slice(0, period).reduce((sum, item) => sum + item[key], 0) / period
+    emaValues.push(sma)
+    
+    // Hitung EMA untuk data selanjutnya
+    for (let i = period; i < data.length; i++) {
+      const ema = (data[i][key] - emaValues[i - period]) * multiplier + emaValues[i - period]
+      emaValues.push(ema)
+    }
+    
+    // Tambahkan null untuk periode awal yang tidak memiliki EMA
+    const nullPadding = Array(period - 1).fill(null)
+    return [...nullPadding, ...emaValues]
+  }
+  
+  // Generate sinyal trading multi-timeframe
+  const generateMultiTimeframeSignals = (m1Data, m5Data, m15Data, ema21M15, ema55M15, ema8M5) => {
+    const signals = Array(m1Data.length).fill(null)
+    
+    // Mapping index M1 ke M5 dan M15
+    const m5IndexMap = Array(m1Data.length).fill(0)
+    const m15IndexMap = Array(m1Data.length).fill(0)
+    
+    let m5Idx = 0
+    let m15Idx = 0
+    
+    for (let i = 0; i < m1Data.length; i++) {
+      // Setiap 5 menit, naikkan index M5
+      if (i > 0 && i % 5 === 0) m5Idx = Math.min(m5Idx + 1, m5Data.length - 1)
       
-      // Deteksi crossover
-      const fastAboveSlow = smaFast[index] > smaSlow[index]
-      const fastBelowSlow = smaFast[index] < smaSlow[index]
-      const prevFastAboveSlow = smaFast[index - 1] > smaSlow[index - 1]
-      const prevFastBelowSlow = smaFast[index - 1] < smaSlow[index - 1]
+      // Setiap 15 menit, naikkan index M15
+      if (i > 0 && i % 15 === 0) m15Idx = Math.min(m15Idx + 1, m15Data.length - 1)
       
-      if (fastAboveSlow && !prevFastAboveSlow) {
-        return { type: 'buy', time: price.time, price: price.close }
-      } else if (fastBelowSlow && !prevFastBelowSlow) {
-        return { type: 'sell', time: price.time, price: price.close }
+      m5IndexMap[i] = m5Idx
+      m15IndexMap[i] = m15Idx
+    }
+    
+    // Generate sinyal berdasarkan multi-timeframe
+    for (let i = 20; i < m1Data.length; i++) {
+      const m5Idx = m5IndexMap[i]
+      const m15Idx = m15IndexMap[i]
+      
+      // Pastikan EMA tersedia
+      if (ema21M15[m15Idx] === null || ema55M15[m15Idx] === null || ema8M5[m5Idx] === null) continue
+      
+      // Kondisi trend M15 (filter utama)
+      const isUptrend = ema21M15[m15Idx] > ema55M15[m15Idx]
+      const isDowntrend = ema21M15[m15Idx] < ema55M15[m15Idx]
+      
+      // Konfirmasi M5
+      const isM5Bullish = m5Data[m5Idx].close > ema8M5[m5Idx]
+      const isM5Bearish = m5Data[m5Idx].close < ema8M5[m5Idx]
+      
+      // Entry M1
+      const currentClose = m1Data[i].close
+      
+      // Logika entry long
+      if (isUptrend && isM5Bullish) {
+        // Contoh kondisi entry: harga menembus high 3 bar terakhir
+        const recentHigh = Math.max(...m1Data.slice(i - 3, i).map(b => b.high))
+        if (currentClose > recentHigh) {
+          signals[i] = { type: 'buy', time: m1Data[i].time, price: currentClose }
+        }
       }
-      return null
-    })
-  }
-  
-  // Inisialisasi data
-  useEffect(() => {
-    const initData = async () => {
-      try {
-        await fetchHistoricalData()
-      } catch (error) {
-        console.error('Initialization error:', error)
+      
+      // Logika entry short
+      if (isDowntrend && isM5Bearish) {
+        // Contoh kondisi entry: harga menembus low 3 bar terakhir
+        const recentLow = Math.min(...m1Data.slice(i - 3, i).map(b => b.low))
+        if (currentClose < recentLow) {
+          signals[i] = { type: 'sell', time: m1Data[i].time, price: currentClose }
+        }
       }
     }
     
-    initData()
-  }, [botSettings.symbol, botSettings.timeframe, startDate, endDate])
+    return signals
+  }
   
   // Eksekusi trading
   const executeTrade = (signal, price, time) => {
@@ -409,7 +479,7 @@ export default function BacktestDashboard() {
     }
     
     // Pastikan data sudah dimuat
-    if (chartData.prices.length === 0) {
+    if (timeframeData.m1.length === 0) {
       try {
         await fetchHistoricalData()
       } catch (error) {
@@ -419,25 +489,25 @@ export default function BacktestDashboard() {
     }
     
     setSimulationStatus('running')
-    let currentIndex = chartData.prices.findIndex(p => p.time === currentTime) || 0
+    let currentIndex = timeframeData.m1.findIndex(p => p.time === currentTime) || 0
     
     simulationRef.current = setInterval(() => {
-      if (currentIndex >= chartData.prices.length - 1) {
+      if (currentIndex >= timeframeData.m1.length - 1) {
         stopSimulation()
         setSimulationStatus('completed')
         return
       }
       
       currentIndex++
-      const priceData = chartData.prices[currentIndex]
+      const priceData = timeframeData.m1[currentIndex]
       setCurrentTime(priceData.time)
-      setProgress((currentIndex / (chartData.prices.length - 1)) * 100)
+      setProgress((currentIndex / (timeframeData.m1.length - 1)) * 100)
       
       // Update open positions
       updateOpenPositions(priceData.close, priceData.time)
       
       // Check for new signals
-      const signal = chartData.signals[currentIndex]
+      const signal = timeframeData.signals[currentIndex]
       if (signal) {
         executeTrade(signal.type, signal.price, signal.time)
       }
@@ -477,8 +547,8 @@ export default function BacktestDashboard() {
       maxDrawdown: 0
     })
     
-    if (chartData.prices.length > 0) {
-      setCurrentTime(chartData.prices[0].time)
+    if (timeframeData.m1.length > 0) {
+      setCurrentTime(timeframeData.m1[0].time)
     }
     setProgress(0)
     setSimulationStatus('stopped')
@@ -514,12 +584,14 @@ export default function BacktestDashboard() {
       chartInstance.current.destroy()
     }
     
-    // Batasi data yang ditampilkan
+    // Batasi data yang ditampilkan (gunakan data M1)
     const startIdx = Math.max(0, currentIndex - 100)
-    const endIdx = Math.min(chartData.prices.length, currentIndex + 20)
-    const visiblePrices = chartData.prices.slice(startIdx, endIdx)
-    const visibleSmaFast = chartData.smaFast.slice(startIdx, endIdx)
-    const visibleSmaSlow = chartData.smaSlow.slice(startIdx, endIdx)
+    const endIdx = Math.min(timeframeData.m1.length, currentIndex + 20)
+    const visiblePrices = timeframeData.m1.slice(startIdx, endIdx)
+    
+    // Hitung EMA untuk tampilan chart
+    const emaFast = calculateEMA(visiblePrices, 5)
+    const emaSlow = calculateEMA(visiblePrices, 20)
     
     // Buat chart baru
     chartInstance.current = new Chart(ctx, {
@@ -536,16 +608,16 @@ export default function BacktestDashboard() {
             fill: true
           },
           {
-            label: 'SMA Fast (5)',
-            data: visibleSmaFast,
+            label: 'EMA 5',
+            data: emaFast,
             borderColor: '#ef4444',
             borderWidth: 1,
             pointRadius: 0,
             tension: 0.1
           },
           {
-            label: 'SMA Slow (20)',
-            data: visibleSmaSlow,
+            label: 'EMA 20',
+            data: emaSlow,
             borderColor: '#10b981',
             borderWidth: 1,
             pointRadius: 0,
@@ -590,10 +662,10 @@ export default function BacktestDashboard() {
   
   // Inisialisasi chart saat data tersedia
   useEffect(() => {
-    if (chartData.prices.length > 0) {
+    if (timeframeData.m1.length > 0) {
       updateChart()
     }
-  }, [chartData])
+  }, [timeframeData])
   
   // Tampilkan pesan jika bukan pengguna premium
   if (!isPremium) {
@@ -668,7 +740,7 @@ export default function BacktestDashboard() {
           <div className="bg-white p-4 border-b flex items-center justify-between flex-wrap gap-4">
             <div className="flex flex-wrap gap-2">
               <div className="bg-gray-100 rounded-lg p-1 flex">
-                {['M1', 'M5', 'M15'].map((tf) => (
+                {['M1'].map((tf) => (
                   <button
                     key={tf}
                     className={`px-3 py-1 rounded-md text-sm font-medium ${
@@ -753,7 +825,7 @@ export default function BacktestDashboard() {
               <div className="p-4 border-b">
                 <h2 className="text-lg font-semibold flex items-center">
                   <CandlestickChart className="mr-2 text-blue-600" size={20} />
-                  {botSettings.symbol} - {botSettings.timeframe} Chart
+                  {botSettings.symbol} - M1 Chart
                   <span className="ml-2 text-sm bg-gray-100 px-2 py-1 rounded-full">
                     {botSettings.strategy}
                   </span>
@@ -948,8 +1020,8 @@ export default function BacktestDashboard() {
                   step="0.01"
                   value={botSettings.lotSize}
                   onChange={(e) => handleSettingChange('lotSize', parseFloat(e.target.value))}
-                  className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
-                />
+                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                  />
               </div>
             </div>
           </div>
@@ -1021,4 +1093,4 @@ export default function BacktestDashboard() {
       </div>
     </div>
   )
-            }
+      }
