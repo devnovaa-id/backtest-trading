@@ -1,6 +1,7 @@
 // app/dashboard/backtest.js
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { 
   CandlestickChart,
   LineChart,
@@ -16,7 +17,9 @@ import {
   Play,
   Pause,
   RefreshCw,
-  Calendar
+  Calendar,
+  Lock,
+  Zap
 } from 'lucide-react'
 import { Chart } from 'chart.js/auto'
 import 'chartjs-adapter-date-fns'
@@ -25,6 +28,10 @@ import 'chartjs-adapter-date-fns'
 const POLYGON_API_KEY = "E3DE0rZ6jci1CfulOXOWkoaWqqxIjXlq"
 
 export default function BacktestDashboard() {
+  const { user } = useUser()
+  const userRole = user?.publicMetadata?.role || 'user'
+  const isPremium = userRole === 'premium' || userRole === 'admin'
+  
   // State untuk data trading
   const [balance, setBalance] = useState(10000)
   const [equity, setEquity] = useState(10000)
@@ -67,6 +74,8 @@ export default function BacktestDashboard() {
   const [progress, setProgress] = useState(0)
   const [startDate, setStartDate] = useState(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
   const [endDate, setEndDate] = useState(new Date())
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
   
   // Referensi untuk chart dan simulasi
   const chartRef = useRef(null)
@@ -81,6 +90,9 @@ export default function BacktestDashboard() {
   // Ambil data historis dari Polygon.io
   const fetchHistoricalData = async () => {
     try {
+      setIsLoading(true)
+      setError(null)
+      
       const multiplier = botSettings.timeframe === 'M1' ? 1 : 
                         botSettings.timeframe === 'M5' ? 5 : 15
       const timespan = 'minute'
@@ -123,7 +135,10 @@ export default function BacktestDashboard() {
       return { prices, smaFast, smaSlow, signals }
     } catch (error) {
       console.error('Error fetching historical data:', error)
+      setError(error.message)
       throw error
+    } finally {
+      setIsLoading(false)
     }
   }
   
@@ -173,6 +188,11 @@ export default function BacktestDashboard() {
   
   // Eksekusi trading
   const executeTrade = (signal, price, time) => {
+    if (!isPremium) {
+      alert('Premium feature required. Upgrade your account to access trading functionality.')
+      return null
+    }
+    
     const tradeId = Date.now()
     const positionType = signal === 'buy' ? 'long' : 'short'
     const tradeAmount = botSettings.lotSize * 100000
@@ -575,6 +595,42 @@ export default function BacktestDashboard() {
     }
   }, [chartData])
   
+  // Tampilkan pesan jika bukan pengguna premium
+  if (!isPremium) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-8">
+        <div className="max-w-lg w-full bg-white rounded-2xl shadow-lg p-8 text-center">
+          <div className="flex justify-center mb-6">
+            <Lock className="text-yellow-500" size={64} />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Premium Feature</h2>
+          <p className="text-gray-600 mb-6">
+            Backtesting is available exclusively to our Premium members. Upgrade your account to access 
+            advanced trading tools and market analysis features.
+          </p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-center">
+              <Zap className="text-yellow-500 mr-2" />
+              <span className="font-medium">Premium features include:</span>
+            </div>
+            <ul className="mt-2 text-left list-disc pl-6 text-gray-700">
+              <li>Advanced backtesting with historical data</li>
+              <li>Real-time trading simulation</li>
+              <li>Multiple strategy testing</li>
+              <li>Detailed performance analytics</li>
+            </ul>
+          </div>
+          <a 
+            href="/dashboard/upgrade"
+            className="inline-block bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-medium py-3 px-6 rounded-lg hover:opacity-90 transition-opacity"
+          >
+            Upgrade to Premium
+          </a>
+        </div>
+      </div>
+    )
+  }
+  
   return (
     <div className="flex flex-col h-full bg-gray-50">
       {/* Header */}
@@ -583,6 +639,9 @@ export default function BacktestDashboard() {
           <h1 className="text-2xl font-bold text-gray-800 flex items-center">
             <BarChart className="mr-2 text-blue-600" size={24} />
             Backtesting Dashboard
+            <span className="ml-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs px-2 py-1 rounded-full">
+              Premium
+            </span>
           </h1>
           <div className="flex items-center space-x-4">
             <div className="flex items-center bg-blue-50 px-3 py-1 rounded-full">
@@ -700,7 +759,28 @@ export default function BacktestDashboard() {
                   </span>
                 </h2>
               </div>
-              <div className="flex-1 p-4">
+              <div className="flex-1 p-4 relative">
+                {isLoading && (
+                  <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600"></div>
+                    <span className="ml-3 text-gray-600">Loading market data...</span>
+                  </div>
+                )}
+                
+                {error && (
+                  <div className="absolute inset-0 bg-white/80 z-10 flex flex-col items-center justify-center p-4">
+                    <div className="text-red-500 mb-4 text-4xl">⚠️</div>
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">Data Error</h3>
+                    <p className="text-gray-600 mb-4 text-center max-w-md">{error}</p>
+                    <button
+                      onClick={fetchHistoricalData}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+                
                 <canvas ref={chartRef} className="w-full h-full" />
               </div>
             </div>
@@ -941,4 +1021,4 @@ export default function BacktestDashboard() {
       </div>
     </div>
   )
-                      }
+            }
