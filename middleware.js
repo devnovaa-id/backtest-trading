@@ -13,7 +13,7 @@ const isProtectedRoute = createRouteMatcher([
 const isAdminRoute = createRouteMatcher(['/admin(.*)'])
 
 const isPremiumRoute = createRouteMatcher([
-  '/dashboard/backtest(.*)',
+  //'/dashboard/backtest(.*)',
   '/dashboard/strategies(.*)',
   '/dashboard/bot/premium(.*)',
   '/dashboard/analytics/advanced(.*)'
@@ -65,7 +65,7 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Auto-upgrade redirect for free users trying to access premium-ish paths
   const premiumFallbackPaths = [
-    '/dashboard/backtest',
+    //'/dashboard/backtest',
     '/dashboard/strategies',
     '/dashboard/bot',
     '/dashboard/analytics'
