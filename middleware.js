@@ -1,4 +1,6 @@
+// middleware.js
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
 
 const isProtectedRoute = createRouteMatcher([
   '/dashboard(.*)',
@@ -8,13 +10,11 @@ const isProtectedRoute = createRouteMatcher([
   '/admin(.*)'
 ])
 
-const isAdminRoute = createRouteMatcher([
-  '/admin(.*)'
-])
+const isAdminRoute = createRouteMatcher(['/admin(.*)'])
 
 const isPremiumRoute = createRouteMatcher([
+  '/dashboard/backtest(.*)',
   '/dashboard/strategies(.*)',
-  '/dashboard/backtest/advanced(.*)',
   '/dashboard/bot/premium(.*)',
   '/dashboard/analytics/advanced(.*)'
 ])
@@ -26,63 +26,69 @@ const isUpgradeRoute = createRouteMatcher([
 
 export default clerkMiddleware(async (auth, req) => {
   const { userId, sessionClaims } = await auth()
-  
-  // Protect routes that require authentication
+  const userRole = sessionClaims?.metadata?.role
+  const url = req.nextUrl.clone()
+  const pathname = url.pathname
+
+  // Protect admin route (requires login + role admin)
+  if (isAdminRoute(req)) {
+    if (!userId) {
+      url.pathname = '/sign-in'
+      return NextResponse.redirect(url)
+    }
+    if (userRole !== 'admin') {
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
+    return NextResponse.next()
+  }
+
+  // Routes that require authentication (non-admin protected)
   if (isProtectedRoute(req)) {
     if (!userId) {
-      return Response.redirect(new URL('/sign-in', req.url))
+      url.pathname = '/sign-in'
+      return NextResponse.redirect(url)
     }
   }
 
-  // Check admin access
-  if (isAdminRoute(req)) {
-    if (!userId) {
-      return Response.redirect(new URL('/sign-in', req.url))
-    }
-    
-    const userRole = sessionClaims?.metadata?.role
-    if (userRole !== 'admin') {
-      return Response.redirect(new URL('/dashboard', req.url))
-    }
-  }
-  
-  // Check if user is trying to access premium features
+  // Premium route protection
   if (isPremiumRoute(req)) {
     if (!userId) {
-      return Response.redirect(new URL('/sign-in', req.url))
+      url.pathname = '/sign-in'
+      return NextResponse.redirect(url)
     }
-    
-    const userRole = sessionClaims?.metadata?.role
     if (userRole !== 'premium' && userRole !== 'admin') {
-      return Response.redirect(new URL('/dashboard/upgrade', req.url))
+      url.pathname = '/dashboard/upgrade'
+      return NextResponse.redirect(url)
     }
   }
-  
-  // Auto-redirect free users to upgrade page when accessing certain features
-  if (userId && !isUpgradeRoute(req) && !isAdminRoute(req)) {
-    const userRole = sessionClaims?.metadata?.role
-    const pathname = req.nextUrl.pathname
-    
-    // Redirect to upgrade if free user tries to access premium features
-    const premiumPaths = [
-      '/dashboard/strategies',
-      '/dashboard/backtest',
-      '/dashboard/bot',
-      '/dashboard/analytics'
-    ]
-    
-    if (premiumPaths.some(path => pathname.startsWith(path)) && 
-        (!userRole || userRole === 'user')) {
-      return Response.redirect(new URL('/dashboard/upgrade', req.url))
-    }
+
+  // Auto-upgrade redirect for free users trying to access premium-ish paths
+  const premiumFallbackPaths = [
+    '/dashboard/backtest',
+    '/dashboard/strategies',
+    '/dashboard/bot',
+    '/dashboard/analytics'
+  ]
+
+  if (
+    userId &&
+    !isUpgradeRoute(req) &&
+    !isAdminRoute(req) &&
+    premiumFallbackPaths.some(p => pathname.startsWith(p)) &&
+    (!userRole || userRole === 'user')
+  ) {
+    url.pathname = '/dashboard/upgrade'
+    return NextResponse.redirect(url)
   }
+
+  // Jika semua lolos, lanjutkan
+  return NextResponse.next()
 })
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    // Always run for API routes
     '/(api|trpc)(.*)',
   ],
 }
