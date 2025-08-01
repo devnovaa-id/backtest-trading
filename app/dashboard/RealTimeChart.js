@@ -8,11 +8,16 @@ import {
   Clock,
   Calendar,
   Gauge,
-  Search
+  RefreshCw
 } from 'lucide-react'
 import { Chart } from 'chart.js/auto'
+import 'chartjs-adapter-date-fns'
 import DatePicker from 'react-datepicker'
 import "react-datepicker/dist/react-datepicker.css"
+
+// Import plugin untuk chart candlestick
+const { CandlestickController, CandlestickElement } = require('chartjs-chart-financial');
+Chart.register(CandlestickController, CandlestickElement);
 
 export default function RealTimeChart() {
   const chartRef = useRef(null)
@@ -29,7 +34,7 @@ export default function RealTimeChart() {
   const [endDate, setEndDate] = useState(new Date())
   const [historicalData, setHistoricalData] = useState([])
   const chartInstance = useRef(null)
-  const API_KEY = "E3DE0rZ6jci1CfulOXOWkoaWqqxIjXlq" // Gunakan API key Anda
+  const API_KEY = "E3DE0rZ6jci1CfulOXOWkoaWqqxIjXlq" // Ganti dengan API key Anda
 
   // Fungsi untuk mendapatkan multiplier berdasarkan timeframe
   const getMultiplier = (tf) => {
@@ -38,7 +43,10 @@ export default function RealTimeChart() {
       case 'M5': return 5
       case 'M15': return 15
       case 'H1': return 60
+      case 'H4': return 240
       case 'D1': return 1440
+      case 'W1': return 10080
+      case 'MN1': return 43200
       default: return 5
     }
   }
@@ -50,22 +58,6 @@ export default function RealTimeChart() {
     }
     return sym;
   };
-
-  // Format waktu untuk label chart
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp)
-    switch(timeframe) {
-      case 'M1': 
-      case 'M5': 
-      case 'M15': 
-      case 'H1': 
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      case 'D1': 
-        return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
-      default: 
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }
-  }
 
   // Format tanggal untuk API Polygon (YYYY-MM-DD)
   const formatDateForAPI = (date) => {
@@ -79,7 +71,7 @@ export default function RealTimeChart() {
     
     try {
       const multiplier = getMultiplier(timeframe)
-      const timespan = timeframe === 'D1' ? 'day' : 'minute'
+      const timespan = timeframe === 'D1' || timeframe === 'W1' || timeframe === 'MN1' ? 'day' : 'minute'
       const formattedSymbol = formatSymbol(symbol)
       
       const fromDate = formatDateForAPI(startDate)
@@ -102,17 +94,17 @@ export default function RealTimeChart() {
       
       // Format data untuk chart
       const chartData = data.results.map(bar => ({
-        timestamp: bar.t,
-        open: bar.o,
-        high: bar.h,
-        low: bar.l,
-        close: bar.c,
-        volume: bar.v
+        x: new Date(bar.t).getTime(), // Konversi ke timestamp
+        o: bar.o,
+        h: bar.h,
+        l: bar.l,
+        c: bar.c,
+        s: [bar.o, bar.h, bar.l, bar.c] // Format khusus untuk chart candlestick
       }))
       
       // Hitung perubahan harga
-      const first = chartData[0].close
-      const last = chartData[chartData.length - 1].close
+      const first = chartData[0].c
+      const last = chartData[chartData.length - 1].c
       const priceChange = ((last - first) / first) * 100
       
       setPrice(last.toFixed(5))
@@ -131,7 +123,7 @@ export default function RealTimeChart() {
     }
   }
 
-  // Inisialisasi chart
+  // Inisialisasi chart dengan tampilan ala MT5
   const initChart = async () => {
     if (!chartRef.current) return
     
@@ -145,62 +137,60 @@ export default function RealTimeChart() {
     
     if (!chartData || chartData.length === 0) return
     
-    // Konfigurasi dataset berdasarkan tipe chart
-    const datasets = []
+    // Konfigurasi dataset untuk candlestick ala MT5
+    const datasets = [{
+      label: `${symbol} Price`,
+      data: chartData,
+      type: 'candlestick',
+      borderColor: '#000',
+      borderWidth: 1,
+      color: {
+        up: '#26a69a', // Warna bullish (hijau)
+        down: '#ef5350', // Warna bearish (merah)
+        unchanged: '#999',
+      },
+      // Skema warna ala MT5
+      rising: {
+        fill: true,
+        lineColor: '#089981', // Border bullish
+        backgroundColor: 'rgba(8, 153, 129, 0.2)', // Background bullish
+      },
+      falling: {
+        fill: true,
+        lineColor: '#f23645', // Border bearish
+        backgroundColor: 'rgba(242, 54, 69, 0.2)', // Background bearish
+      },
+    }]
     
-    if (chartType === 'candlestick') {
-      datasets.push({
-        type: 'candlestick',
-        label: `${symbol} Price`,
-        data: chartData.map(bar => ({
-          x: bar.timestamp,
-          o: bar.open,
-          h: bar.high,
-          l: bar.low,
-          c: bar.close
-        })),
-        color: {
-          up: '#26a69a',
-          down: '#ef5350',
-          unchanged: '#999',
-        },
-      })
-    } else {
-      datasets.push({
-        type: 'line',
-        label: `${symbol} Price`,
-        data: chartData.map(bar => ({
-          x: bar.timestamp,
-          y: bar.close
-        })),
-        borderColor: '#3a6ff8',
-        backgroundColor: 'rgba(58, 111, 248, 0.1)',
-        borderWidth: 2,
-        pointRadius: 0,
-        tension: 0.1,
-        fill: false,
-      })
-    }
-    
-    // Buat chart baru
+    // Buat chart baru dengan tampilan ala MT5
     chartInstance.current = new Chart(ctx, {
+      type: 'candlestick',
       data: {
         datasets: datasets
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         scales: {
           x: {
             type: 'time',
             time: {
-              unit: timeframe === 'D1' ? 'day' : 'minute',
+              unit: timeframe === 'D1' || timeframe === 'W1' || timeframe === 'MN1' ? 'day' : 'minute',
               displayFormats: {
                 minute: 'HH:mm',
-                day: 'MMM d'
+                hour: 'HH:mm',
+                day: 'dd MMM',
+                week: 'dd MMM',
+                month: 'MMM yyyy'
               }
             },
+            grid: {
+              color: '#e0e0e0',
+              borderColor: '#e0e0e0',
+            },
             ticks: {
+              color: '#666',
               maxRotation: 0,
               autoSkip: true,
               maxTicksLimit: 20
@@ -208,7 +198,12 @@ export default function RealTimeChart() {
           },
           y: {
             position: 'right',
+            grid: {
+              color: '#e0e0e0',
+              borderColor: '#e0e0e0',
+            },
             ticks: {
+              color: '#666',
               callback: function(value) {
                 return value.toFixed(5)
               }
@@ -222,19 +217,23 @@ export default function RealTimeChart() {
           tooltip: {
             mode: 'index',
             intersect: false,
+            backgroundColor: 'rgba(30, 30, 30, 0.9)',
+            borderColor: '#555',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 4,
+            titleColor: '#fff',
+            bodyColor: '#fff',
+            bodySpacing: 4,
             callbacks: {
               label: function(context) {
-                if (chartType === 'candlestick') {
-                  const point = context.raw
-                  return [
-                    `Open: ${point.o.toFixed(5)}`,
-                    `High: ${point.h.toFixed(5)}`,
-                    `Low: ${point.l.toFixed(5)}`,
-                    `Close: ${point.c.toFixed(5)}`
-                  ]
-                } else {
-                  return `Price: ${context.parsed.y.toFixed(5)}`
-                }
+                const point = context.raw
+                return [
+                  `Open: ${point.o.toFixed(5)}`,
+                  `High: ${point.h.toFixed(5)}`,
+                  `Low: ${point.l.toFixed(5)}`,
+                  `Close: ${point.c.toFixed(5)}`
+                ]
               },
               title: function(context) {
                 const date = new Date(context[0].raw.x)
@@ -242,7 +241,18 @@ export default function RealTimeChart() {
               }
             }
           }
-        }
+        },
+        // Tampilan grid ala MT5
+        elements: {
+          candlestick: {
+            borderColor: '#000',
+            borderWidth: 1,
+          }
+        },
+        // Background chart
+        backgroundColor: '#fff',
+        borderColor: '#ccc',
+        borderWidth: 1,
       }
     })
   }
@@ -252,7 +262,7 @@ export default function RealTimeChart() {
     setSymbol(e.target.value.toUpperCase())
   }
 
-  // Handler untuk memperbarui chart saat parameter berubah
+  // Handler untuk memperbarui chart
   const handleUpdateChart = () => {
     initChart()
   }
@@ -266,13 +276,13 @@ export default function RealTimeChart() {
         chartInstance.current.destroy()
       }
     }
-  }, [symbol, timeframe, chartType, startDate, endDate])
+  }, [symbol, timeframe, startDate, endDate])
 
   return (
     <div className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 mb-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
         <div className="mb-4 md:mb-0">
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">Historical Market Data</h3>
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">MT5-style Candlestick Chart</h3>
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative">
               <input
@@ -300,11 +310,11 @@ export default function RealTimeChart() {
         </div>
         
         <div className="flex flex-wrap gap-2">
-          <div className="bg-gray-100 rounded-xl p-1 flex">
-            {['M1', 'M5', 'M15', 'H1', 'D1'].map((tf) => (
+          <div className="bg-gray-100 rounded-xl p-1 flex flex-wrap">
+            {['M1', 'M5', 'M15', 'H1', 'H4', 'D1', 'W1', 'MN1'].map((tf) => (
               <button
                 key={tf}
-                className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                className={`px-2 py-1 rounded-lg text-xs font-medium ${
                   timeframe === tf 
                     ? 'bg-white shadow text-blue-600' 
                     : 'text-gray-600 hover:text-gray-900'
@@ -314,29 +324,6 @@ export default function RealTimeChart() {
                 {tf}
               </button>
             ))}
-          </div>
-          
-          <div className="bg-gray-100 rounded-xl p-1 flex">
-            <button 
-              className={`p-2 rounded-lg ${
-                chartType === 'candlestick' 
-                  ? 'text-blue-600 bg-blue-50' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-              onClick={() => setChartType('candlestick')}
-            >
-              <CandlestickChart size={16} />
-            </button>
-            <button 
-              className={`p-2 rounded-lg ${
-                chartType === 'line' 
-                  ? 'text-blue-600 bg-blue-50' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-              onClick={() => setChartType('line')}
-            >
-              <LineChart size={16} />
-            </button>
           </div>
         </div>
       </div>
@@ -372,58 +359,72 @@ export default function RealTimeChart() {
         
         <button
           onClick={handleUpdateChart}
-          className="px-4 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          className="px-4 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center"
         >
-          Apply Dates
+          <RefreshCw className="mr-1 w-4 h-4" />
+          Load Data
         </button>
         
         <div className="flex items-center text-sm text-gray-600">
-          <span className="mr-2">Data Points:</span>
+          <span className="mr-2">Bars:</span>
           <span className="font-medium">{historicalData.length}</span>
         </div>
       </div>
       
-      <div className="relative h-[500px]">
+      <div className="relative h-[500px] border border-gray-300 rounded-lg overflow-hidden">
         {isLoading && (
-          <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-600 border-t-transparent"></div>
-            <span className="ml-3 text-gray-600">Loading market data...</span>
+          <div className="absolute inset-0 bg-white/90 z-10 flex items-center justify-center flex-col">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600"></div>
+            <span className="mt-3 text-gray-600">Loading candlestick data...</span>
           </div>
         )}
         
         {error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 bg-white/90 z-10">
             <div className="text-gray-400 mb-4 text-4xl">📉</div>
-            <p className="text-gray-600 mb-2">Failed to load market data</p>
+            <p className="text-gray-600 mb-2 font-medium">Failed to load market data</p>
             <p className="text-gray-500 text-sm max-w-md">{error}</p>
             <button 
-              className="mt-4 px-4 py-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors"
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
               onClick={fetchHistoricalData}
             >
-              Try Again
+              <RefreshCw className="mr-2 w-4 h-4" />
+              Reload Data
             </button>
           </div>
         )}
         
-        <canvas ref={chartRef} className="w-full h-full" />
+        <canvas 
+          ref={chartRef} 
+          className="w-full h-full bg-white"
+          style={{ 
+            background: '#ffffff',
+            borderLeft: '1px solid #e0e0e0',
+            borderBottom: '1px solid #e0e0e0'
+          }}
+        />
       </div>
       
-      <div className="mt-6 flex justify-between items-center">
-        <div className="flex space-x-2">
-          <div className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm">
-            <Gauge className="w-4 h-4 mr-1" />
-            Timeframe: {timeframe}
-          </div>
-          <div className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm">
-            Symbol: {symbol}
-          </div>
-          <div className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm">
-            Range: {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
-          </div>
+      <div className="mt-6 flex flex-wrap gap-4 items-center">
+        <div className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm">
+          <Gauge className="w-4 h-4 mr-1" />
+          Timeframe: {timeframe}
         </div>
-        
-        <div className="text-sm text-gray-500">
-          Data from Polygon.io
+        <div className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm">
+          Symbol: {symbol}
+        </div>
+        <div className="flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm">
+          Range: {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
+        </div>
+        <div className="flex items-center">
+          <div className="flex items-center mr-4">
+            <div className="w-3 h-3 bg-[#089981] mr-1"></div>
+            <span className="text-xs">Bullish</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-[#f23645] mr-1"></div>
+            <span className="text-xs">Bearish</span>
+          </div>
         </div>
       </div>
     </div>
