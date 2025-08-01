@@ -694,7 +694,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 pt-20 flex">
-      <Sidebar />
       {/* Sidebar */}
       <div className={`fixed lg:relative z-30 w-64 bg-white shadow-xl lg:shadow-none h-full transform ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
