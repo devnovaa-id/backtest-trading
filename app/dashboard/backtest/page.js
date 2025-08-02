@@ -91,6 +91,10 @@ export default function BacktestDashboard() {
     breakerBlocks: []
   })
   
+  // State untuk optimasi loading
+  const [generationProgress, setGenerationProgress] = useState(0)
+  const [isGeneratingData, setIsGeneratingData] = useState(false)
+  
   // Referensi untuk chart dan simulasi
   const chartRef = useRef(null)
   const chartInstance = useRef(null)
@@ -103,9 +107,17 @@ export default function BacktestDashboard() {
 
   // Generator data per tick yang sangat realistis
   const generateTickData = useCallback(() => {
+    setIsGeneratingData(true)
+    setGenerationProgress(0)
+    
     const startTime = new Date(startDate).getTime()
     const endTime = new Date(endDate).getTime()
     const durationSeconds = Math.floor((endTime - startTime) / 1000)
+    
+    // Batasi jumlah data untuk pengembangan
+    const maxSeconds = process.env.NODE_ENV === 'development' 
+      ? Math.min(durationSeconds, 60 * 60 * 24) // 1 hari untuk development
+      : durationSeconds
     
     const tickData = []
     let currentPrice = BASE_PRICE
@@ -136,7 +148,11 @@ export default function BacktestDashboard() {
     let lastSwingHigh = BASE_PRICE + 0.0010
     let lastSwingLow = BASE_PRICE - 0.0010
     
-    for (let i = 0; i < durationSeconds; i++) {
+    // Blok pembuatan data untuk optimasi
+    const blockSize = 1000
+    let lastProgressReport = 0
+    
+    for (let i = 0; i < maxSeconds; i++) {
       const timestamp = new Date(startTime + i * 1000).toISOString()
       
       // 1. Regime switching dengan durasi minimal
@@ -292,8 +308,18 @@ export default function BacktestDashboard() {
       }
       
       tickData.push(tick)
+      
+      // Update progress secara berkala (setiap 1%)
+      if (i % Math.floor(maxSeconds / 100) === 0) {
+        const progress = Math.floor((i / maxSeconds) * 100)
+        if (progress > lastProgressReport) {
+          setGenerationProgress(progress)
+          lastProgressReport = progress
+        }
+      }
     }
     
+    setIsGeneratingData(false)
     return tickData
   }, [startDate, endDate, botSettings.includeSlippage])
 
@@ -1498,6 +1524,16 @@ export default function BacktestDashboard() {
                   onChange={(e) => setEndDate(new Date(e.target.value))}
                   className="border border-gray-300 rounded-md px-2 py-1 text-sm"
                 />
+                <button
+                  className="ml-2 text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded"
+                  onClick={() => {
+                    const now = new Date();
+                    setEndDate(now);
+                    setStartDate(new Date(now.getTime() - 24 * 60 * 60 * 1000)); // 1 hari
+                  }}
+                >
+                  1 Day
+                </button>
               </div>
               
               <div className="bg-gray-100 rounded-lg p-1 flex">
@@ -1572,9 +1608,33 @@ export default function BacktestDashboard() {
               </div>
               <div className="flex-1 p-4 relative">
                 {isLoading && (
-                  <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600"></div>
-                    <span className="ml-3 text-gray-600">Loading market data...</span>
+                  <div className="absolute inset-0 bg-white/80 z-10 flex flex-col items-center justify-center p-4">
+                    {isGeneratingData ? (
+                      <>
+                        <div className="text-blue-600 mb-4">
+                          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mx-auto"></div>
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-800 mb-2">Generating Market Data</h3>
+                        <p className="text-gray-600 mb-4 text-center max-w-md">
+                          Simulating realistic market conditions... This may take a moment.
+                        </p>
+                        <div className="w-full max-w-xs bg-gray-200 rounded-full h-2.5 mb-2">
+                          <div 
+                            className="bg-blue-600 h-2.5 rounded-full" 
+                            style={{ width: `${generationProgress}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-sm text-gray-500">{generationProgress}% complete</p>
+                        <p className="text-xs text-gray-400 mt-4">
+                          Tip: For faster testing during development, use shorter date ranges
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600"></div>
+                        <span className="ml-3 text-gray-600">Loading market data...</span>
+                      </>
+                    )}
                   </div>
                 )}
                 
@@ -1762,142 +1822,142 @@ export default function BacktestDashboard() {
                 </label>
                 <input
                   type="number"
-                  min="0.01"
-                  max="10"
-                  step="0.01"
-                  value={botSettings.lotSize}
-                  onChange={(e) => handleSettingChange('lotSize', parseFloat(e.target.value))}
-                  className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
-                />
-              </div>
-              
-              <div className="border-t pt-4">
-                <h3 className="text-md font-medium mb-3 flex items-center">
-                  <BookOpen className="mr-2 text-blue-600" size={16} />
-                  Strategy Settings
-                </h3>
+                    min="0.01"
+                    max="10"
+                    step="0.01"
+                    value={botSettings.lotSize}
+                    onChange={(e) => handleSettingChange('lotSize', parseFloat(e.target.value))}
+                    className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                  />
+                </div>
                 
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={botSettings.smcEnabled}
-                      onChange={(e) => handleSettingChange('smcEnabled', e.target.checked)}
-                      className="h-4 w-4 text-blue-600 rounded"
-                    />
-                    <label className="ml-2 text-sm text-gray-700">
-                      Enable Smart Money Concepts
-                    </label>
-                  </div>
+                <div className="border-t pt-4">
+                  <h3 className="text-md font-medium mb-3 flex items-center">
+                    <BookOpen className="mr-2 text-blue-600" size={16} />
+                    Strategy Settings
+                  </h3>
                   
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={botSettings.ictEnabled}
-                      onChange={(e) => handleSettingChange('ictEnabled', e.target.checked)}
-                      className="h-4 w-4 text-blue-600 rounded"
-                    />
-                    <label className="ml-2 text-sm text-gray-700">
-                      Enable ICT Strategies
-                    </label>
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={botSettings.includeSlippage}
-                      onChange={(e) => handleSettingChange('includeSlippage', e.target.checked)}
-                      className="h-4 w-4 text-blue-600 rounded"
-                    />
-                    <label className="ml-2 text-sm text-gray-700">
-                      Include Slippage
-                    </label>
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={botSettings.smcEnabled}
+                        onChange={(e) => handleSettingChange('smcEnabled', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 rounded"
+                      />
+                      <label className="ml-2 text-sm text-gray-700">
+                        Enable Smart Money Concepts
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={botSettings.ictEnabled}
+                        onChange={(e) => handleSettingChange('ictEnabled', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 rounded"
+                      />
+                      <label className="ml-2 text-sm text-gray-700">
+                        Enable ICT Strategies
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={botSettings.includeSlippage}
+                        onChange={(e) => handleSettingChange('includeSlippage', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 rounded"
+                      />
+                      <label className="ml-2 text-sm text-gray-700">
+                        Include Slippage
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* Trade History and Analysis */}
-      <div className="bg-white border-t">
-        <div className="p-4">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-lg font-semibold flex items-center">
-              <RefreshCw className="mr-2 text-blue-600" size={20} />
-              Trade History & Market Analysis
-            </h2>
-            <div className="text-sm text-gray-500">
-              {trades.filter(t => t.exitPrice).length} closed trades
+        
+        {/* Trade History and Analysis */}
+        <div className="bg-white border-t">
+          <div className="p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-lg font-semibold flex items-center">
+                <RefreshCw className="mr-2 text-blue-600" size={20} />
+                Trade History & Market Analysis
+              </h2>
+              <div className="text-sm text-gray-500">
+                {trades.filter(t => t.exitPrice).length} closed trades
+              </div>
             </div>
-          </div>
-          
-          {showAnalysis && (
-            <>
-              {renderMarketStructure()}
-              {renderEquityCurve()}
-            </>
-          )}
-          
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entry</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exit</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategy</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {trades.filter(t => t.exitPrice).map((trade, index) => (
-                  <tr key={trade.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-4 py-2 text-sm">{formatTime(trade.entryTime)}</td>
-                    <td className="px-4 py-2 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        trade.type === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {trade.type.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-sm">{trade.entryPrice.toFixed(5)}</td>
-                    <td className="px-4 py-2 text-sm">{trade.exitPrice.toFixed(5)}</td>
-                    <td className={`px-4 py-2 text-sm font-medium ${
-                      trade.profit > 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      ${formatNumber(trade.profit)}
-                    </td>
-                    <td className="px-4 py-2 text-sm">
-                      <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
-                        {botSettings.strategy}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-sm">
-                      <span className="text-xs text-gray-600">
-                        {trade.reason}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
             
-            {trades.filter(t => t.exitPrice).length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <div className="bg-gray-100 border border-dashed border-gray-300 rounded-lg p-8">
-                  <BarChart className="mx-auto text-gray-400" size={40} />
-                  <h3 className="mt-4 text-lg font-medium text-gray-700">No trades yet</h3>
-                  <p className="text-gray-500 mt-2">Start the simulation to generate trade history</p>
-                </div>
-              </div>
+            {showAnalysis && (
+              <>
+                {renderMarketStructure()}
+                {renderEquityCurve()}
+              </>
             )}
+            
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entry</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exit</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategy</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {trades.filter(t => t.exitPrice).map((trade, index) => (
+                    <tr key={trade.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="px-4 py-2 text-sm">{formatTime(trade.entryTime)}</td>
+                      <td className="px-4 py-2 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          trade.type === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {trade.type.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{trade.entryPrice.toFixed(5)}</td>
+                      <td className="px-4 py-2 text-sm">{trade.exitPrice.toFixed(5)}</td>
+                      <td className={`px-4 py-2 text-sm font-medium ${
+                        trade.profit > 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        ${formatNumber(trade.profit)}
+                      </td>
+                      <td className="px-4 py-2 text-sm">
+                        <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                          {botSettings.strategy}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-sm">
+                        <span className="text-xs text-gray-600">
+                          {trade.reason}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              
+              {trades.filter(t => t.exitPrice).length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="bg-gray-100 border border-dashed border-gray-300 rounded-lg p-8">
+                    <BarChart className="mx-auto text-gray-400" size={40} />
+                    <h3 className="mt-4 text-lg font-medium text-gray-700">No trades yet</h3>
+                    <p className="text-gray-500 mt-2">Start the simulation to generate trade history</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  )
+    );
                     }
